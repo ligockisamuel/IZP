@@ -2,6 +2,7 @@
 *.o
 *.out
 a.out
+build
 
 # VS Code
 .vscode/
