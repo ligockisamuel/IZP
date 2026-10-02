@@ -6,6 +6,7 @@ Obsahuje řešení cvičení, projekty a vlastní studijní materiály z předn�
 
 ## Struktura repozitáře
 
+```text
 IZP/
 ├── cviceni/       # Řešení úloh ze cvičení
 ├── projekty/      # Projekty do předmětu
