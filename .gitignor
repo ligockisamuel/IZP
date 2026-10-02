@@ -1,0 +1,14 @@
+# Compiled files
+*.o
+*.out
+a.out
+
+# VS Code
+.vscode/
+
+# Valgrind
+vgcore.*
+
+# OS files
+.DS_Store
+Thumbs.db
