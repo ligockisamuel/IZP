@@ -13,7 +13,7 @@ int main()
 
     delka = strlen(pole);
 
-    for (int i = 0; i < delka; i++)
+    for (int i = 0 ; i < delka; i++)
     {
         if (isupper(pole[i]))
             pocVelkych++;
