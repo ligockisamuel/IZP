@@ -58,7 +58,7 @@ void vypisPrunik(int delkaA, int poleA[], int delkaB, int poleB[])
             if (jeVMnozine(delkaB, poleB, poleA[i]))
             {
                 printf("%i ", poleA[i]);
-                break;
+                
             }
         
     }
