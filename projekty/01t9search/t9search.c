@@ -1,102 +1,178 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdbool.h>
 
-#define MAX_LENGTH 101 // Maximalni delka jmena/cisla v kontaktu je 100 (101 prvek pole pro '\0')
+#define MAX_LENGTH 102 // Maximalni delka jmena/cisla v kontaktu je 100 + '\n' + '\0'
 
-char char_to_digit(char ch);                                             // Funkce pro prevod znaku na cislo
-bool matches(const char *text, const char *pattern, int pattern_length); // Funkce pro hledani shody argumentu s kontaktem
-void cut_nl(char *s);
-bool test_lentgh;
+// Vysledky funkce read_line
+#define READ_OK 0
+#define READ_EOF 1
+#define READ_ERROR 2
+
+char char_to_digit(char ch);                                                  // Prevod znaku na cislici
+bool matches(const char *text, const char *pattern, int pattern_length);      // Hledani shody argumentu v textu
+void cut_nl(char *s);                                                         // Odriznuti '\n'
+bool check_args(int argc, char *argv[]);                                      // Kontrola argumentu programu
+bool valid_name(const char *s);                                               // Kontrola jmena
+bool valid_number(const char *s);                                             // Kontrola telefonniho cisla
+int read_line(char *line, bool (*is_valid)(const char *), const char *error_msg); // Precte a zkontroluje jeden radek
+bool text_matches(const char *text, const char *pattern, int pattern_length); // Prevede text na cislice a hleda shodu
+bool contact_matches(const char *name, const char *number, const char *pattern, int pattern_length);
 
 int main(int argc, char *argv[])
 {
-
-    if (argc > 2)
-    {
-        fprintf(stderr, "Prilis mnoho argumentu\n");
+    if (!check_args(argc, argv))
         return 1;
-    }
 
-    char *argv_num = (argc == 1) ? " " : argv[1];
-    int argv_length = strlen(argv_num);
+    const char *pattern = (argc == 2) ? argv[1] : "";
+    int pattern_length = strlen(pattern);
 
     char name[MAX_LENGTH] = {0};
     char number[MAX_LENGTH] = {0};
-    char control_line[MAX_LENGTH] = {0};
     bool found_matches = false;
+    int status;
 
-    while (fgets(name, MAX_LENGTH, stdin) != NULL)
+    while ((status = read_line(name, valid_name, "Invalid name")) == READ_OK)
     {
-        size_t len_name = strlen(name);
-        if(len_name > 0 && name[len_name-1] != '\n'){
-            fprintf(stderr, "Prilis dlouhy radek\n");
+        status = read_line(number, valid_number, "Invalid phone number");
+        if (status == READ_EOF)
+        {
+            fprintf(stderr, "Incomplete contact\n");
             return 2;
         }
-        cut_nl(name);
-
-        if (fgets(number, MAX_LENGTH, stdin) == NULL)
-        {
-            fprintf(stderr, "Invalid input format\n");
-            break;
-        }
-
-        size_t len_num = strlen(number);
-
-        if(len_num > 0 && number[len_num-1] != '\n'){
-            fprintf(stderr, "Prilis dlouhy radek\n");
+        if (status == READ_ERROR)
             return 2;
-        }
 
-        cut_nl(number);
-
-
-        if (argc > 1)
-        {
-
-            
-            for (size_t i = 0; i < len_name; i++)
-            {
-                control_line[i] = char_to_digit(name[i]);
-            }
-
-            control_line[len_name] = '\0';
-
-            if (matches(control_line, argv_num, argv_length))
-            {
-                printf("%s, %s\n", name, number);
-                found_matches = true;
-
-                continue;
-            }
-            size_t len_num = strlen(number);
-            for (size_t i = 0; i < len_num; i++)
-            {
-                control_line[i] = char_to_digit(number[i]);
-            }
-
-            control_line[len_num] = '\0';
-
-            if (matches(control_line, argv_num, argv_length))
-            {
-                found_matches = true;
-                printf("%s, %s\n", name, number);
-
-                continue;
-            }
-        }
-        else
+        if (argc == 1 || contact_matches(name, number, pattern, pattern_length))
         {
             printf("%s, %s\n", name, number);
             found_matches = true;
         }
     }
 
+    if (status == READ_ERROR)
+        return 2;
+
     if (!found_matches)
         printf("Not found\n");
     return 0;
+}
+
+bool check_args(int argc, char *argv[])
+{
+    if (argc > 2)
+    {
+        fprintf(stderr, "Too many arguments\n");
+        return false;
+    }
+
+    if (argc == 2)
+    {
+        int length = strlen(argv[1]);
+        if (length == 0 || length > 100)
+        {
+            fprintf(stderr, "Invalid argument length\n");
+            return false;
+        }
+        for (int i = 0; i < length; i++)
+        {
+            if (!isdigit((unsigned char)argv[1][i]))
+            {
+                fprintf(stderr, "Argument must contain only digits\n");
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+int read_line(char *line, bool (*is_valid)(const char *), const char *error_msg)
+{
+    if (fgets(line, MAX_LENGTH, stdin) == NULL)
+        return READ_EOF;
+
+    size_t len = strlen(line);
+    if (len > 0 && line[len - 1] != '\n')
+    {
+        fprintf(stderr, "Line too long\n");
+        return READ_ERROR;
+    }
+
+    cut_nl(line);
+
+    if (!is_valid(line))
+    {
+        fprintf(stderr, "%s\n", error_msg);
+        return READ_ERROR;
+    }
+    return READ_OK;
+}
+
+// Delku (max 100) uz hlida read_line, zde se kontroluje neprazdnost a znaky
+bool valid_name(const char *s)
+{
+    size_t len = strlen(s);
+
+    if (len == 0)
+        return false;
+
+    for (size_t i = 0; i < len; i++)
+    {
+        unsigned char ch = (unsigned char)s[i];
+
+        if (ch < 32 || ch > 126)
+            return false;
+    }
+
+    return true;
+}
+
+// Cislice, pripadne jedno '+' na zacatku, za kterym nasleduji cislice
+bool valid_number(const char *s)
+{
+    size_t len = strlen(s);
+
+    if (len == 0)
+        return false;
+
+    size_t i = 0;
+
+    if (s[0] == '+')
+    {
+        i = 1;
+
+        if (i == len)
+            return false;
+    }
+
+    for (; i < len; i++)
+    {
+        if (s[i] < '0' || s[i] > '9')
+            return false;
+    }
+
+    return true;
+}
+
+bool text_matches(const char *text, const char *pattern, int pattern_length)
+{
+    char control_line[MAX_LENGTH] = {0};
+    size_t len = strlen(text);
+
+    for (size_t i = 0; i < len; i++)
+    {
+        control_line[i] = char_to_digit(text[i]);
+    }
+    control_line[len] = '\0';
+
+    return matches(control_line, pattern, pattern_length);
+}
+
+bool contact_matches(const char *name, const char *number, const char *pattern, int pattern_length)
+{
+    return text_matches(name, pattern, pattern_length) ||
+           text_matches(number, pattern, pattern_length);
 }
 
 char char_to_digit(char ch)
@@ -153,7 +229,7 @@ char char_to_digit(char ch)
     case '9':
         return ch; // cislice se mapuje sama na sebe
     default:
-        return '?'; // nebo treba nejaky specialni znak / chyba
+        return '?'; // znak, ktery zadna klavesa nezastupuje
     }
 }
 
@@ -193,4 +269,3 @@ void cut_nl(char *s)
         i++;
     }
 }
-
